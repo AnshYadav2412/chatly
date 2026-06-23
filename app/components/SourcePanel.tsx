@@ -12,9 +12,10 @@ type Tab = "pdf" | "url" | "text";
 
 interface Props {
   onIngested: () => void;
+  embeddingModel: string;
 }
 
-export default function SourcePanel({ onIngested }: Props) {
+export default function SourcePanel({ onIngested, embeddingModel }: Props) {
   const [tab, setTab] = useState<Tab>("pdf");
   const [status, setStatus] = useState<Status>({ type: "idle" });
   const [url, setUrl] = useState("");
@@ -52,6 +53,7 @@ export default function SourcePanel({ onIngested }: Props) {
     }
     const fd = new FormData();
     fd.append("file", file);
+    fd.append("embeddingModel", embeddingModel);
     await ingest({ method: "POST", body: fd });
   }
 
@@ -61,7 +63,7 @@ export default function SourcePanel({ onIngested }: Props) {
     await ingest({
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "url", url: url.trim() }),
+      body: JSON.stringify({ type: "url", url: url.trim(), embeddingModel }),
     });
   }
 
@@ -71,7 +73,7 @@ export default function SourcePanel({ onIngested }: Props) {
     await ingest({
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "text", text: text.trim(), title: textTitle.trim() }),
+      body: JSON.stringify({ type: "text", text: text.trim(), title: textTitle.trim(), embeddingModel }),
     });
   }
 

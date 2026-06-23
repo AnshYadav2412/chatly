@@ -5,4 +5,4 @@ export { routeSearch } from "./searchRouter";
 export type { RouterRecommendation } from "./searchRouter";
 export { runReasoner } from "./reasoner";
 export type { ThinkingStep, ReasonerResult } from "./reasoner";
-export { ollamaClient, CHAT_MODEL } from "./client";
+export { ollamaClient, CHAT_MODEL, getResolvedModel, getResolvedEmbeddingModel } from "./client";

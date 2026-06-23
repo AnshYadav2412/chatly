@@ -5,11 +5,15 @@ import {
   formatWebResults,
   routeSearch,
   runReasoner,
+  getResolvedModel,
+  getResolvedEmbeddingModel,
   type WebResult,
 } from "../tools";
 
 export async function POST(request: Request) {
-  const { input, webSearch = false } = await request.json();
+  const { input, webSearch = false, model: modelOverride, embeddingModel: embeddingModelOverride } = await request.json();
+  const resolvedModel = await getResolvedModel(modelOverride);
+  const resolvedEmbeddingModel = await getResolvedEmbeddingModel(embeddingModelOverride);
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -24,7 +28,7 @@ export async function POST(request: Request) {
           type: "step",
           step: { step: "plan", content: "Querying local knowledge base..." }
         });
-        const ragContext = await getRagContext(input);
+        const ragContext = await getRagContext(input, resolvedEmbeddingModel);
 
         if (ragContext) {
           send({
@@ -46,7 +50,7 @@ export async function POST(request: Request) {
             type: "step",
             step: { step: "plan", content: "Checking if web search is recommended..." }
           });
-          const recommendation = await routeSearch(input, ragContext);
+          const recommendation = await routeSearch(input, ragContext, resolvedModel);
           if (recommendation.tool === "web" || recommendation.tool === "rag+web") {
             send({
               type: "step",
@@ -79,7 +83,8 @@ export async function POST(request: Request) {
           webContext,
           (step) => {
             send({ type: "step", step });
-          }
+          },
+          resolvedModel
         );
 
         // 4. Send the final compiled output
@@ -92,7 +97,7 @@ export async function POST(request: Request) {
           webResults: webResults.slice(0, 5),
           toolUsed,
           usage,
-          model: CHAT_MODEL,
+          model: resolvedModel,
         });
 
       } catch (err: any) {

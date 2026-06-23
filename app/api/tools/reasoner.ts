@@ -85,7 +85,8 @@ export async function runReasoner(
   query: string,
   ragContext: string,
   webContext: string,
-  onStep?: (step: ThinkingStep) => void
+  onStep?: (step: ThinkingStep) => void,
+  modelOverride?: string
 ): Promise<ReasonerResult> {
   const contextBlock = [
     ragContext
@@ -114,7 +115,7 @@ export async function runReasoner(
     let res;
     try {
       res = await ollamaClient.chat.completions.create({
-        model: CHAT_MODEL,
+        model: modelOverride || CHAT_MODEL,
         messages,
         response_format: { type: "json_object" },
         temperature: 0.3,
@@ -155,6 +156,13 @@ export async function runReasoner(
           const stepObj = { step: "plan" as const, content };
           thinkingSteps.push(stepObj);
           onStep?.(stepObj);
+
+          // Push user message to alternate roles for APIs requiring strictly alternating messages
+          const observePayload = JSON.stringify({
+            step: "observe",
+            content: "Plan acknowledged. Proceed with the next step (action or output)."
+          });
+          messages.push({ role: "user", content: observePayload });
         }
       }
 
@@ -215,6 +223,13 @@ export async function runReasoner(
           const stepObj = { step: "observe" as const, content };
           thinkingSteps.push(stepObj);
           onStep?.(stepObj);
+
+          // Push user message to alternate roles for APIs requiring strictly alternating messages
+          const observePayload = JSON.stringify({
+            step: "observe",
+            content: "Observation acknowledged. Proceed with the next step (action or output)."
+          });
+          messages.push({ role: "user", content: observePayload });
         }
       }
 

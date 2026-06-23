@@ -2,12 +2,7 @@ import { OllamaEmbeddings } from "@langchain/ollama";
 import { QdrantVectorStore } from "@langchain/qdrant";
 
 const QDRANT_URL = "http://localhost:6333";
-const COLLECTION_NAME = "chatly-docs";
-
-const embeddings = new OllamaEmbeddings({
-  model: "nomic-embed-text",
-  baseUrl: "http://localhost:11434",
-});
+const COLLECTION_NAME_PREFIX = "chatly-docs";
 
 /**
  * Retrieve the most relevant document chunks from the Qdrant vector store.
@@ -16,11 +11,21 @@ const embeddings = new OllamaEmbeddings({
  * offline, the collection doesn't exist, or no results were found — so the
  * caller can always fall back to plain-chat mode gracefully.
  */
-export async function getRagContext(query: string): Promise<string> {
+export async function getRagContext(query: string, embeddingModel?: string): Promise<string> {
   try {
+    const model = embeddingModel || "nomic-embed-text";
+    const embeddings = new OllamaEmbeddings({
+      model: model,
+      baseUrl: "http://localhost:11434",
+    });
+
+    // Create a sanitized collection name specific to the embedding model
+    const sanitizedModel = model.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+    const collectionName = `${COLLECTION_NAME_PREFIX}-${sanitizedModel}`;
+
     const store = await QdrantVectorStore.fromExistingCollection(embeddings, {
       url: QDRANT_URL,
-      collectionName: COLLECTION_NAME,
+      collectionName: collectionName,
     });
 
     const results = await store.similaritySearch(query, 4);

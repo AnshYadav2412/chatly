@@ -11,12 +11,7 @@ const pdfParse = _require("pdf-parse") as (buf: Buffer) => Promise<{ text: strin
 
 
 const QDRANT_URL = "http://localhost:6333";
-const COLLECTION_NAME = "chatly-docs";
-
-const embeddings = new OllamaEmbeddings({
-  model: "nomic-embed-text",
-  baseUrl: "http://localhost:11434",
-});
+const COLLECTION_NAME_PREFIX = "chatly-docs";
 
 const splitter = new RecursiveCharacterTextSplitter({
   chunkSize: 1000,
@@ -24,9 +19,9 @@ const splitter = new RecursiveCharacterTextSplitter({
 });
 
 /** Delete the collection so we always start fresh (replace mode) */
-async function deleteCollection() {
+async function deleteCollection(collectionName: string) {
   try {
-    await fetch(`${QDRANT_URL}/collections/${COLLECTION_NAME}`, {
+    await fetch(`${QDRANT_URL}/collections/${collectionName}`, {
       method: "DELETE",
     });
   } catch {
@@ -56,11 +51,16 @@ export async function POST(request: Request) {
 
   const contentType = request.headers.get("content-type") ?? "";
   let docs: Document[] = [];
+  let embeddingModel = "nomic-embed-text";
 
   try {
     // ── PDF upload ────────────────────────────────────────────────────────────
     if (contentType.includes("multipart/form-data")) {
       const formData = await request.formData();
+      const modelParam = formData.get("embeddingModel");
+      if (modelParam) {
+        embeddingModel = String(modelParam);
+      }
       const file = formData.get("file") as File | null;
       if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
       if (!file.name.toLowerCase().endsWith(".pdf")) {
@@ -84,6 +84,9 @@ export async function POST(request: Request) {
     // ── URL fetch ─────────────────────────────────────────────────────────────
     } else {
       const body = await request.json();
+      if (body.embeddingModel) {
+        embeddingModel = String(body.embeddingModel);
+      }
 
       if (body.type === "url") {
         if (!body.url) return NextResponse.json({ error: "url is required" }, { status: 400 });
@@ -133,13 +136,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No content found to ingest" }, { status: 400 });
     }
 
+    const embeddings = new OllamaEmbeddings({
+      model: embeddingModel,
+      baseUrl: "http://localhost:11434",
+    });
+
+    const sanitizedModel = embeddingModel.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+    const collectionName = `${COLLECTION_NAME_PREFIX}-${sanitizedModel}`;
+
     // 3. Delete existing collection (replace mode)
-    await deleteCollection();
+    await deleteCollection(collectionName);
 
     // 4. Embed and store in Qdrant
     await QdrantVectorStore.fromDocuments(splitDocs, embeddings, {
       url: QDRANT_URL,
-      collectionName: COLLECTION_NAME,
+      collectionName: collectionName,
     });
 
     return NextResponse.json({ ok: true, chunks: splitDocs.length });

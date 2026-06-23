@@ -27,7 +27,8 @@ export type RouterRecommendation = {
  */
 export async function routeSearch(
   query: string,
-  ragContext: string
+  ragContext: string,
+  modelOverride?: string
 ): Promise<RouterRecommendation> {
   const contextSummary = ragContext
     ? `Document context retrieved from the user's knowledge base (first 1200 chars):\n"""\n${ragContext.slice(0, 1200)}\n"""`
@@ -56,7 +57,7 @@ User question: ${query}`;
 
   try {
     const res = await ollamaClient.chat.completions.create({
-      model: CHAT_MODEL,
+      model: modelOverride || CHAT_MODEL,
       messages: [{ role: "user", content: routerPrompt }],
       max_tokens: 10,
       temperature: 0,

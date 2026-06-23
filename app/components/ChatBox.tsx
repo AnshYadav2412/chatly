@@ -7,6 +7,7 @@ import TokenStatsPanel from "./TokenStatsPanel";
 import ThinkingBlock from "./ThinkingBlock";
 import WebSearchToggle from "./WebSearchToggle";
 import ExecutionMonitor from "./ExecutionMonitor";
+import ModelSelector from "./ModelSelector";
 import { Message, SessionStats, TokenUsage, ToolUsed, ThinkingStep, WebResult } from "../types";
 
 const SUGGESTIONS = [
@@ -22,6 +23,8 @@ export default function ChatBox() {
   const [isLoading, setIsLoading] = useState(false);
   const [hasContext, setHasContext] = useState(false);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [selectedModel, setSelectedModel] = useState("gemma4:31b-cloud");
+  const [selectedEmbeddingModel, setSelectedEmbeddingModel] = useState("nomic-embed-text:latest");
   const [sessionStats, setSessionStats] = useState<SessionStats>({
     totalPromptTokens: 0,
     totalCompletionTokens: 0,
@@ -78,7 +81,12 @@ export default function ChatBox() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input: message, webSearch: webSearchEnabled }),
+        body: JSON.stringify({
+          input: message,
+          webSearch: webSearchEnabled,
+          model: selectedModel,
+          embeddingModel: selectedEmbeddingModel,
+        }),
       });
 
       if (!res.body) {
@@ -273,10 +281,18 @@ export default function ChatBox() {
         <div style={{ height: "1px", background: "rgba(255,255,255,0.07)", margin: "10px 0" }} />
 
         {/* Source Panel */}
-        <SourcePanel onIngested={() => setHasContext(true)} />
+        <SourcePanel onIngested={() => setHasContext(true)} embeddingModel={selectedEmbeddingModel} />
 
         {/* Web Search Toggle */}
         <WebSearchToggle enabled={webSearchEnabled} onChange={setWebSearchEnabled} />
+
+        {/* Model Selector */}
+        <ModelSelector
+          selectedModel={selectedModel}
+          onChange={setSelectedModel}
+          selectedEmbeddingModel={selectedEmbeddingModel}
+          onEmbeddingChange={setSelectedEmbeddingModel}
+        />
 
         {/* Token Stats Panel */}
         <TokenStatsPanel
