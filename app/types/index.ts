@@ -22,6 +22,7 @@ export type Message = {
   text: string;
   isUser: boolean;
   tokenUsage?: TokenUsage;
+  routerUsage?: TokenUsage;
   model?: string;
   webResults?: WebResult[];
   webSearched?: boolean;
@@ -34,4 +35,5 @@ export type SessionStats = {
   totalCompletionTokens: number;
   totalTokens: number;
   messageCount: number;
+  routerTotalTokens?: number;
 };

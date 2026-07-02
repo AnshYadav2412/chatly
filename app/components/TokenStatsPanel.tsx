@@ -7,10 +7,11 @@ import { SessionStats, TokenUsage } from "../types";
 type TokenStatsPanelProps = {
   stats: SessionStats;
   lastUsage: TokenUsage | null;
+  lastRouterUsage?: TokenUsage | null;
   model: string | null;
 };
 
-export default function TokenStatsPanel({ stats, lastUsage, model }: TokenStatsPanelProps) {
+export default function TokenStatsPanel({ stats, lastUsage, lastRouterUsage, model }: TokenStatsPanelProps) {
   const [expanded, setExpanded] = useState(true);
 
   const avgTotal =
@@ -135,60 +136,72 @@ export default function TokenStatsPanel({ stats, lastUsage, model }: TokenStatsP
               >
                 Last message
               </p>
-              <div
-                style={{
-                  display: "flex",
-                  gap: "6px",
-                  justifyContent: "space-around",
-                  marginBottom: "12px",
-                }}
-              >
-                {[
-                  { label: "In", value: lastUsage.promptTokens, color: "#60a5fa" },
-                  { label: "Out", value: lastUsage.completionTokens, color: "#a78bfa" },
-                  { label: "Total", value: lastUsage.totalTokens, color: "#34d399" },
-                ].map(({ label, value, color }) => (
-                  <div
-                    key={label}
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: "4px",
-                    }}
-                  >
-                    <div style={{ position: "relative", width: 36, height: 36 }}>
-                      <DonutRing
-                        value={value}
-                        max={lastUsage.totalTokens}
-                        color={color}
-                      />
-                      <span
-                        style={{
-                          position: "absolute",
-                          inset: 0,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "0.55rem",
-                          fontWeight: 700,
-                          color,
-                        }}
-                      >
-                        {value > 999 ? `${(value / 1000).toFixed(1)}k` : value}
-                      </span>
-                    </div>
-                    <span
+              {[
+                { label: "In", value: lastUsage.promptTokens, color: "#60a5fa" },
+                { label: "Out", value: lastUsage.completionTokens, color: "#a78bfa" },
+                { label: "Total", value: lastUsage.totalTokens, color: "#34d399" },
+                ...(lastRouterUsage
+                  ? [{ label: "Route", value: lastRouterUsage.totalTokens, color: "#f59e0b" }]
+                  : []),
+              ].length > 0 && (
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "6px",
+                    justifyContent: "space-around",
+                    marginBottom: "12px",
+                  }}
+                >
+                  {[
+                    { label: "In", value: lastUsage.promptTokens, color: "#60a5fa" },
+                    { label: "Out", value: lastUsage.completionTokens, color: "#a78bfa" },
+                    { label: "Total", value: lastUsage.totalTokens, color: "#34d399" },
+                    ...(lastRouterUsage
+                      ? [{ label: "Route", value: lastRouterUsage.totalTokens, color: "#f59e0b" }]
+                      : []),
+                  ].map(({ label, value, color }) => (
+                    <div
+                      key={label}
                       style={{
-                        fontSize: "0.63rem",
-                        color: "rgba(255,255,255,0.4)",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: "4px",
                       }}
                     >
-                      {label}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                      <div style={{ position: "relative", width: 36, height: 36 }}>
+                        <DonutRing
+                          value={value}
+                          max={lastUsage.totalTokens + (lastRouterUsage?.totalTokens ?? 0)}
+                          color={color}
+                        />
+                        <span
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "0.55rem",
+                            fontWeight: 700,
+                            color,
+                          }}
+                        >
+                          {value > 999 ? `${(value / 1000).toFixed(1)}k` : value}
+                        </span>
+                      </div>
+                      <span
+                        style={{
+                          fontSize: "0.63rem",
+                          color: "rgba(255,255,255,0.4)",
+                        }}
+                      >
+                        {label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           ) : (
             <p
@@ -248,6 +261,13 @@ export default function TokenStatsPanel({ stats, lastUsage, model }: TokenStatsP
                     value: avgTotal,
                     color: "rgba(255,255,255,0.5)",
                   },
+                  ...(stats.routerTotalTokens
+                    ? [{
+                        label: "Router total",
+                        value: stats.routerTotalTokens,
+                        color: "#f59e0b",
+                      }]
+                    : []),
                 ].map(({ label, value, color, bold }) => (
                   <div
                     key={label}

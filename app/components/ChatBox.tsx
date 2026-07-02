@@ -32,6 +32,7 @@ export default function ChatBox() {
     messageCount: 0,
   });
   const [lastUsage, setLastUsage] = useState<TokenUsage | null>(null);
+  const [lastRouterUsage, setLastRouterUsage] = useState<TokenUsage | null>(null);
   const [lastModel, setLastModel] = useState<string | null>(null);
 
   // Agent execution monitor states
@@ -65,10 +66,11 @@ export default function ChatBox() {
     webSearched?: boolean,
     toolUsed?: ToolUsed,
     thinkingSteps?: ThinkingStep[],
+    routerUsage?: TokenUsage,
   ) =>
     setMessages((prev) => [
       ...prev,
-      { id: nextId.current++, text, isUser, tokenUsage, model, webResults, webSearched, toolUsed, thinkingSteps },
+      { id: nextId.current++, text, isUser, tokenUsage, routerUsage, model, webResults, webSearched, toolUsed, thinkingSteps },
     ]);
 
   const sendMessage = async (message: string) => {
@@ -78,11 +80,18 @@ export default function ChatBox() {
     setActiveTool("idle");
 
     try {
+      // Send last 6 messages for conversation context
+      const history = messages.slice(-6).map((m) => ({
+        role: m.isUser ? "user" as const : "assistant" as const,
+        content: m.text,
+      }));
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           input: message,
+          messages: history,
           webSearch: webSearchEnabled,
           model: selectedModel,
           embeddingModel: selectedEmbeddingModel,
@@ -150,6 +159,7 @@ export default function ChatBox() {
             }
           } else if (data.type === "result") {
             const usage: TokenUsage | undefined = data.usage ?? undefined;
+            const routerUsage: TokenUsage | undefined = data.routerUsage ?? undefined;
             const model: string | undefined = data.model ?? undefined;
             const webResults: WebResult[] | undefined = data.webResults ?? undefined;
             const webSearched: boolean = data.webSearched ?? false;
@@ -165,18 +175,21 @@ export default function ChatBox() {
               webSearched,
               toolUsed,
               thinkingSteps,
+              routerUsage,
             );
 
             if (data.hasContext) setHasContext(true);
 
             if (usage) {
               setLastUsage(usage);
+              setLastRouterUsage(routerUsage ?? null);
               setLastModel(model ?? null);
               setSessionStats((prev) => ({
                 totalPromptTokens: prev.totalPromptTokens + usage.promptTokens,
                 totalCompletionTokens: prev.totalCompletionTokens + usage.completionTokens,
                 totalTokens: prev.totalTokens + usage.totalTokens,
                 messageCount: prev.messageCount + 1,
+                routerTotalTokens: (prev.routerTotalTokens ?? 0) + (routerUsage?.totalTokens ?? 0),
               }));
             }
 
@@ -219,6 +232,7 @@ export default function ChatBox() {
     setMessages([]);
     setHasContext(false);
     setLastUsage(null);
+    setLastRouterUsage(null);
     setLastModel(null);
     setSessionStats({
       totalPromptTokens: 0,
@@ -298,6 +312,7 @@ export default function ChatBox() {
         <TokenStatsPanel
           stats={sessionStats}
           lastUsage={lastUsage}
+          lastRouterUsage={lastRouterUsage}
           model={lastModel}
         />
 

@@ -86,7 +86,8 @@ export async function runReasoner(
   ragContext: string,
   webContext: string,
   onStep?: (step: ThinkingStep) => void,
-  modelOverride?: string
+  modelOverride?: string,
+  history: HistoryMessage[] = [],
 ): Promise<ReasonerResult> {
   const contextBlock = [
     ragContext
@@ -99,6 +100,7 @@ export async function runReasoner(
 
   const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
     { role: "system", content: SYSTEM_PROMPT },
+    ...history,
     {
       role: "user",
       content: `${contextBlock}\n\n---\n\nUser question: ${query}`,
@@ -318,8 +320,53 @@ export async function runReasoner(
  * Extracts and parses all complete JSON objects present inside a raw string.
  * This helper helps robustly parse model outputs containing multiple consecutive or nested JSON objects.
  */
-function parseJsonObjects(str: string): Record<string, any>[] {
-  const objects: Record<string, any>[] = [];
+const QUICK_PROMPT = `Answer the question concisely and directly. Use markdown formatting where appropriate.`;
+
+type HistoryMessage = { role: "user" | "assistant"; content: string };
+
+export async function quickModelAnswer(
+  query: string,
+  history: HistoryMessage[] = [],
+  modelOverride?: string
+): Promise<{ answer: string; usage: { promptTokens: number; completionTokens: number; totalTokens: number } | null }> {
+  try {
+    const res = await ollamaClient.chat.completions.create({
+      model: modelOverride || CHAT_MODEL,
+      messages: [
+        { role: "system", content: QUICK_PROMPT },
+        ...history,
+        { role: "user", content: query },
+      ],
+      temperature: 0.3,
+    });
+
+    const answer = res.choices[0]?.message?.content ?? "I was unable to generate a response.";
+    const usage = res.usage
+      ? {
+          promptTokens: res.usage.prompt_tokens ?? 0,
+          completionTokens: res.usage.completion_tokens ?? 0,
+          totalTokens: (res.usage.prompt_tokens ?? 0) + (res.usage.completion_tokens ?? 0),
+        }
+      : null;
+
+    return { answer, usage };
+  } catch {
+    return {
+      answer: "I encountered an error while generating a response. Please try again.",
+      usage: null,
+    };
+  }
+}
+
+type ModelStep = {
+  step?: string;
+  content?: string;
+  function?: string;
+  input?: string;
+};
+
+function parseJsonObjects(str: string): ModelStep[] {
+  const objects: ModelStep[] = [];
   let braceCount = 0;
   let startIndex = -1;
 
